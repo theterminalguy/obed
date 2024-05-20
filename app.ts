@@ -58,7 +58,11 @@ const providers = {
         })
       ),
     }),
-    transform: async function (x: any): Promise<EmbeddingResponse[]> {
+    transform: async function (
+      input: string[],
+      apiResponse: any
+    ): Promise<EmbeddingResponse[]> {
+      console.log("ollama", JSON.stringify(apiResponse));
       return [];
     },
     toReqBody: function (input: string | string[], model: string): string {
@@ -70,13 +74,19 @@ const providers = {
     modelSchema: z.enum(["mxbai-embed-large"]),
     authHeader: null,
     canEmbedMulti: false,
-    responseSchema: z.array(
-      z.object({
-        embedding: z.array(z.number()),
-      })
-    ),
-    transform: async function (x: any): Promise<EmbeddingResponse[]> {
-      return [];
+    transform: async function (
+      input: string[],
+      apiResponse: any
+    ): Promise<EmbeddingResponse[]> {
+      const responseSchema = z.array(
+        z.object({
+          embedding: z.array(z.number()),
+        })
+      );
+      const data = responseSchema.parse(apiResponse);
+      return data.map((v, i) => {
+        return { input: input[i], embeddings: v.embedding };
+      }) as EmbeddingResponse[];
     },
     toReqBody: function (input: string | string[], model: string): string {
       return JSON.stringify({ prompt: input, model });
@@ -123,12 +133,12 @@ async function generateEmbedding(
       })
     )) as Array<{ embedding: number[] }>;
 
-    return await provider.transform(response);
+    return await provider.transform(payload.input, response);
   } else {
     const response = await sendRequest(
       provider.toReqBody(payload.input, payload.model)
     );
-    return await provider.transform(response);
+    return await provider.transform(payload.input, response);
   }
 }
 
