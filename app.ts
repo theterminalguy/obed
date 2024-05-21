@@ -1,6 +1,8 @@
 import z from "zod";
 import * as math from "mathjs";
 import "dotenv/config";
+import fs, { readFile } from "fs/promises";
+import * as path from "path";
 
 function getCosineSimilarity(vectorA: number[], vectorB: number[]) {
   // Compute the dot product of the two vectors
@@ -16,6 +18,46 @@ function getCosineSimilarity(vectorA: number[], vectorB: number[]) {
 
 function sortByScoreAsc(records: { score: number }[]) {
   return records.sort((a, b) => b.score - a.score);
+}
+
+function findNearest(
+  k: number,
+  target: EmbeddingResponse,
+  vectorSpace: EmbeddingResponse[]
+) {
+  const results: Array<{
+    input: string;
+    score: number;
+  }> = [];
+  // get cosine similarity between target and each embedding
+  const len = vectorSpace.length;
+  for (let i = 0; i < len; i++) {
+    const score = getCosineSimilarity(
+      target.embeddings,
+      vectorSpace[i].embeddings
+    );
+    results.push({
+      input: vectorSpace[i].input,
+      score,
+    });
+  }
+  return sortByScoreAsc(results).slice(0, k);
+}
+
+export async function findTopK(k: number, target: string, ts: number) {
+  const fileContent = await readFile(`history/${ts}/output.json`, "utf8");
+  const embeddings = JSON.parse(fileContent) as EmbeddingResponse[];
+  const targetEmbedding = embeddings.find((e) => e.input === target);
+  if (!targetEmbedding)
+    throw new Error("target input not found in vector space");
+
+  // remove target from vector space
+  const newEmbeddings = embeddings.filter((e) => e.input != target);
+
+  const result = findNearest(k, targetEmbedding, newEmbeddings);
+
+  // Log the sorted results
+  console.log(`The top ${k} similar items to ${target} are:`, result);
 }
 
 /**
@@ -34,6 +76,23 @@ function base64EncodeArray(array: any[]): string {
   return btoa(binaryString);
 }
 
+export enum Provider {
+  OpenAi = "openai",
+  Ollama = "ollam",
+}
+
+export enum Models {
+  // openai
+  TextEmbedding3Small = "text-embedding-3-small",
+  TextEmbedding3Large = "text-embedding-3-large",
+  TextEmbeddingAda002 = "text-embedding-ada-002",
+
+  // ollama
+  MxbaiEmbedLarge = "mxbai-embed-large",
+  NomicEmbedText = "nomic-embed-text",
+  AllMinilm = "all-minilm",
+}
+
 interface RequestPayload {
   input: string[];
   model: string;
@@ -46,32 +105,38 @@ interface EmbeddingResponse {
 
 // llm providers
 const providers = {
-  openai: {
+  [Provider.OpenAi]: {
     url: "https://api.openai.com/v1/embeddings",
-    modelSchema: z.enum(["text-embedding-3-small"]),
+    modelSchema: z.enum([
+      Models.TextEmbedding3Small,
+      Models.TextEmbedding3Large,
+      Models.TextEmbeddingAda002,
+    ]),
     authHeader: process.env.OPEN_API_KEY,
     canEmbedMulti: true,
-    responseSchema: z.object({
-      data: z.array(
-        z.object({
-          embedding: z.array(z.number()),
-        })
-      ),
-    }),
     transform: async function (
       input: string[],
       apiResponse: any
     ): Promise<EmbeddingResponse[]> {
-      console.log("ollama", JSON.stringify(apiResponse));
-      return [];
+      const responseSchema = z.object({
+        data: z.array(
+          z.object({
+            embedding: z.array(z.number()),
+          })
+        ),
+      });
+      const { data } = responseSchema.parse(apiResponse);
+      return data.map((v, i) => {
+        return { input: input[i], embeddings: v.embedding };
+      }) as EmbeddingResponse[];
     },
     toReqBody: function (input: string | string[], model: string): string {
       return JSON.stringify({ input, model });
     },
   },
-  ollama: {
+  [Provider.Ollama]: {
     url: "http://localhost:11434/api/embeddings",
-    modelSchema: z.enum(["mxbai-embed-large"]),
+    modelSchema: z.enum([Models.MxbaiEmbedLarge, Models.AllMinilm]),
     authHeader: null,
     canEmbedMulti: false,
     transform: async function (
@@ -96,7 +161,7 @@ const providers = {
 
 // Function to generate embeddings
 async function generateEmbedding(
-  providerName: keyof typeof providers,
+  providerName: Provider,
   payload: RequestPayload
 ): Promise<EmbeddingResponse[]> {
   const provider = providers[providerName];
@@ -142,10 +207,61 @@ async function generateEmbedding(
   }
 }
 
-(async () => {
-  const result = await generateEmbedding("ollama", {
-    input: ["hello", "world"],
-    model: "mxbai-embed-large",
+async function createFolder(name: string) {
+  const newFolderPath = path.join(__dirname, "history", name);
+
+  try {
+    await fs.mkdir(newFolderPath);
+    console.log("Folder created successfully:", newFolderPath);
+  } catch (err: Error | any) {
+    if (err.code === "EEXIST") {
+      console.log("Folder already exists:", newFolderPath);
+    } else {
+      console.error("Error creating folder:", err);
+    }
+  }
+}
+
+async function createAndWriteFile(fileName: string, fileContent: string) {
+  // Define the path to the new file
+  const filePath = path.join(__dirname, "history", fileName);
+  try {
+    // Write content to the file
+    await fs.writeFile(filePath, fileContent, "utf-8");
+    console.log("File created and written successfully:", filePath);
+  } catch (err) {
+    console.error("Error creating or writing to file:", err);
+  }
+}
+
+export async function run(provider: Provider, model: Models, input: string[]) {
+  const result = await generateEmbedding(provider, {
+    input,
+    model,
   });
-  console.log(JSON.stringify(result));
-})();
+  const timestamp = `${Date.now()}`;
+  // create folder
+  await createFolder(`${timestamp}`);
+
+  // create input.json
+  await createAndWriteFile(
+    `${timestamp}/input.json`,
+    JSON.stringify({
+      timestamp,
+      provider,
+      model,
+      input,
+    })
+  );
+
+  const runTS = `
+import { findTopK } from "../../app";
+
+findTopK(5, "${input[0]}", ${timestamp});
+`;
+  // create run.js
+  await createAndWriteFile(`${timestamp}/run.ts`, runTS);
+
+  // create output.json
+  await createAndWriteFile(`${timestamp}/output.json`, JSON.stringify(result));
+}
