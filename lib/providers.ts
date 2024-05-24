@@ -7,30 +7,42 @@ export enum Provider {
   Voyage = "voyage",
 }
 
-export enum Models {
-  // openai
+export enum OpenAIModels {
   TextEmbedding3Small = "text-embedding-3-small",
   TextEmbedding3Large = "text-embedding-3-large",
   TextEmbeddingAda002 = "text-embedding-ada-002",
+}
 
-  // ollama
+export enum OllamaModels {
   MxbaiEmbedLarge = "mxbai-embed-large",
   NomicEmbedText = "nomic-embed-text",
   AllMinilm = "all-minilm",
+}
 
-  //voyage
+export enum VoyageModels {
   VoyageLarge2Instruct = "voyage-large-2-instruct",
 }
+
+// export enum Models {
+//   // openai
+//   TextEmbedding3Small = "text-embedding-3-small",
+//   TextEmbedding3Large = "text-embedding-3-large",
+//   TextEmbeddingAda002 = "text-embedding-ada-002",
+
+//   // ollama
+//   MxbaiEmbedLarge = "mxbai-embed-large",
+//   NomicEmbedText = "nomic-embed-text",
+//   AllMinilm = "all-minilm",
+
+//   //voyage
+//   VoyageLarge2Instruct = "voyage-large-2-instruct",
+// }
 
 // llm providers
 export const providers = {
   [Provider.OpenAi]: {
     url: "https://api.openai.com/v1/embeddings",
-    modelSchema: z.enum([
-      Models.TextEmbedding3Small,
-      Models.TextEmbedding3Large,
-      Models.TextEmbeddingAda002,
-    ]),
+    modelSchema: z.nativeEnum(OpenAIModels),
     authHeader: process.env.OPEN_API_KEY,
     canEmbedMulti: true,
     transform: async function (
@@ -58,7 +70,7 @@ export const providers = {
   },
   [Provider.Ollama]: {
     url: "http://localhost:11434/api/embeddings",
-    modelSchema: z.enum([Models.MxbaiEmbedLarge, Models.AllMinilm]),
+    modelSchema: z.nativeEnum(OllamaModels),
     authHeader: null,
     canEmbedMulti: false,
     transform: async function (
@@ -84,7 +96,7 @@ export const providers = {
   },
   [Provider.Voyage]: {
     url: "https://api.voyageai.com/v1/embeddings",
-    modelSchema: z.enum([Models.VoyageLarge2Instruct]),
+    modelSchema: z.nativeEnum(VoyageModels),
     authHeader: process.env.VOYAGE_API_KEY,
     canEmbedMulti: true,
     transform: async function (

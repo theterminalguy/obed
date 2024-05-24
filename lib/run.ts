@@ -1,12 +1,17 @@
 import "dotenv/config";
 import { generateEmbedding } from "./embeddings";
 import { EmbeddingInput } from "./embeddings.interface";
-import { Provider, Models } from "./providers";
+import {
+  OllamaModels,
+  OpenAIModels,
+  Provider,
+  VoyageModels,
+} from "./providers";
 import { createFolder, createFile } from "./fs";
 
 export async function run(
   provider: Provider,
-  model: Models,
+  model: OllamaModels | OpenAIModels | VoyageModels,
   input: EmbeddingInput[]
 ) {
   if (!input.length) return;
