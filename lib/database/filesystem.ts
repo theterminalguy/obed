@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { EmbeddingResponse } from "../embeddings.interface";
 import { calcCosineSimilarity } from "../math";
+import { appendLogToMDFile } from "../fs";
 
 function sortByScoreAsc(records: { score: number }[]) {
   return records.sort((a, b) => b.score - a.score);
@@ -30,11 +31,7 @@ function findNearest(
   return sortByScoreAsc(results).slice(0, k);
 }
 
-export async function findTopK(
-  k: number,
-  targetLabel: string,
-  ts: number
-) {
+export async function findTopK(k: number, targetLabel: string, ts: number) {
   const fileContent = await readFile(`history/${ts}/output.json`, "utf8");
   const embeddings = JSON.parse(fileContent) as EmbeddingResponse[];
   const targetEmbedding = embeddings.find((e) => e.label === targetLabel);
@@ -48,4 +45,12 @@ export async function findTopK(
 
   // Log the sorted results
   console.log(`The top ${k} similar items to ${targetLabel} are:`, result);
+  appendLogToMDFile(
+    ts,
+    `The top ${k} similar items to ${targetLabel} are: ${JSON.stringify(
+      result,
+      null,
+      2
+    )}`
+  );
 }
