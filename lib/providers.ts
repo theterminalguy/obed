@@ -4,6 +4,7 @@ import { EmbeddingInput, EmbeddingResponse } from "./embeddings.interface";
 export enum Provider {
   OpenAi = "openai",
   Ollama = "ollam",
+  Voyage = "voyage",
 }
 
 export enum Models {
@@ -16,6 +17,9 @@ export enum Models {
   MxbaiEmbedLarge = "mxbai-embed-large",
   NomicEmbedText = "nomic-embed-text",
   AllMinilm = "all-minilm",
+
+  //voyage
+  VoyageLarge2Instruct = "voyage-large-2-instruct",
 }
 
 // llm providers
@@ -76,6 +80,34 @@ export const providers = {
       }) as EmbeddingResponse[];
     },
     promptLabel: "prompt",
+    modelLabel: "model",
+  },
+  [Provider.Voyage]: {
+    url: "https://api.voyageai.com/v1/embeddings",
+    modelSchema: z.enum([Models.VoyageLarge2Instruct]),
+    authHeader: process.env.VOYAGE_API_KEY,
+    canEmbedMulti: true,
+    transform: async function (
+      input: EmbeddingInput[],
+      apiResponse: any
+    ): Promise<EmbeddingResponse[]> {
+      const responseSchema = z.object({
+        data: z.array(
+          z.object({
+            embedding: z.array(z.number()),
+          })
+        ),
+      });
+      const { data } = responseSchema.parse(apiResponse);
+      return data.map((v, i) => {
+        return {
+          label: input[i].label,
+          value: input[i].value,
+          embeddings: v.embedding,
+        };
+      }) as EmbeddingResponse[];
+    },
+    promptLabel: "input",
     modelLabel: "model",
   },
 };

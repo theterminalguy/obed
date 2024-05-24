@@ -2,8 +2,8 @@ import { readAllFilesInFolder } from "./lib/fs";
 import { Models, Provider } from "./lib/providers";
 import { run } from "./lib/run";
 
-const provider: Provider = Provider.Ollama;
-const model: Models = Models.AllMinilm;
+const provider: Provider = Provider.Voyage;
+const model: Models = Models.VoyageLarge2Instruct;
 
 (async () => {
   const inputs = await readAllFilesInFolder("inputs/");
