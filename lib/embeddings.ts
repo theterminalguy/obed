@@ -13,7 +13,6 @@ export async function generateEmbedding(
   provider.modelSchema.parse(payload.model);
 
   const sendRequest = async function (reqBody: string) {
-    // Construct headers
     const headers = {
       "Content-Type": "application/json",
       ...(provider.authHeader
@@ -23,7 +22,6 @@ export async function generateEmbedding(
         : null),
     };
 
-    // Make the API request
     const response = await fetch(provider.url, {
       method: "POST",
       headers,
