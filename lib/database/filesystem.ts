@@ -1,4 +1,6 @@
+import { readFile } from "fs/promises";
 import { EmbeddingResponse } from "../embeddings.interface";
+import { calcCosineSimilarity } from "../math";
 
 function sortByScoreAsc(records: { score: number }[]) {
   return records.sort((a, b) => b.score - a.score);
@@ -31,11 +33,10 @@ function findNearest(
 export async function findTopK(
   k: number,
   targetLabel: string,
-  embeddings: EmbeddingResponse[],
   ts: number
 ) {
-  // const fileContent = await readFile(`history/${ts}/output.json`, "utf8");
-  // const embeddings = JSON.parse(fileContent) as EmbeddingResponse[];
+  const fileContent = await readFile(`history/${ts}/output.json`, "utf8");
+  const embeddings = JSON.parse(fileContent) as EmbeddingResponse[];
   const targetEmbedding = embeddings.find((e) => e.label === targetLabel);
   if (!targetEmbedding)
     throw new Error("target input not found in vector space");

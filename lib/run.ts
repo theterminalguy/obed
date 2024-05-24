@@ -30,7 +30,7 @@ export async function run(
   );
 
   const runTS = `
-import { findTopK } from "../../app";
+import { findTopK } from "../../lib/database/filesystem";
 
 findTopK(5, "${input[0].label}", ${timestamp});
 `;

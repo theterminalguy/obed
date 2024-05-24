@@ -3,7 +3,8 @@ import * as path from "path";
 import { EmbeddingInput } from "./embeddings.interface";
 
 export async function createFolder(name: string) {
-  const newFolderPath = path.join(__dirname, "history", name);
+  // @todo working directory should be parameterized
+  const newFolderPath = path.join("history", name);
 
   try {
     await fs.mkdir(newFolderPath);
@@ -19,7 +20,7 @@ export async function createFolder(name: string) {
 
 export async function createFile(name: string, content: string) {
   // Define the path to the new file
-  const filePath = path.join(__dirname, "history", name);
+  const filePath = path.join("history", name);
   try {
     // Write content to the file
     await fs.writeFile(filePath, content, "utf-8");
